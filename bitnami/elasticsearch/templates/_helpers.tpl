@@ -189,10 +189,40 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 {{- end -}}
 
 {{/*
+Render and return the configured replica count for each node role.
+*/}}
+{{- define "elasticsearch.master.replicaCount" -}}
+{{- include "common.tplvalues.render" (dict "value" .Values.master.replicaCount "context" $) -}}
+{{- end -}}
+
+{{- define "elasticsearch.data.replicaCount" -}}
+{{- include "common.tplvalues.render" (dict "value" .Values.data.replicaCount "context" $) -}}
+{{- end -}}
+
+{{- define "elasticsearch.coordinating.replicaCount" -}}
+{{- include "common.tplvalues.render" (dict "value" .Values.coordinating.replicaCount "context" $) -}}
+{{- end -}}
+
+{{- define "elasticsearch.ingest.replicaCount" -}}
+{{- include "common.tplvalues.render" (dict "value" .Values.ingest.replicaCount "context" $) -}}
+{{- end -}}
+
+{{/*
+Return effective replica count when autoscaling is enabled/disabled.
+*/}}
+{{- define "elasticsearch.master.effectiveReplicaCount" -}}
+{{- ternary .Values.master.autoscaling.minReplicas (include "elasticsearch.master.replicaCount" . | int) .Values.master.autoscaling.enabled -}}
+{{- end -}}
+
+{{- define "elasticsearch.data.effectiveReplicaCount" -}}
+{{- ternary .Values.data.autoscaling.minReplicas (include "elasticsearch.data.replicaCount" . | int) .Values.data.autoscaling.enabled -}}
+{{- end -}}
+
+{{/*
 Returns true if at least one master-elegible node replica has been configured.
 */}}
 {{- define "elasticsearch.master.enabled" -}}
-{{- if or .Values.master.autoscaling.enabled (gt (int .Values.master.replicaCount) 0) -}}
+{{- if or .Values.master.autoscaling.enabled (gt (include "elasticsearch.master.replicaCount" . | int) 0) -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -201,7 +231,7 @@ Returns true if at least one master-elegible node replica has been configured.
 Returns true if at least one coordinating-only node replica has been configured.
 */}}
 {{- define "elasticsearch.coordinating.enabled" -}}
-{{- if or .Values.coordinating.autoscaling.enabled (gt (int .Values.coordinating.replicaCount) 0) -}}
+{{- if or .Values.coordinating.autoscaling.enabled (gt (include "elasticsearch.coordinating.replicaCount" . | int) 0) -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -210,7 +240,7 @@ Returns true if at least one coordinating-only node replica has been configured.
 Returns true if at least one data-only node replica has been configured.
 */}}
 {{- define "elasticsearch.data.enabled" -}}
-{{- if or .Values.data.autoscaling.enabled (gt (int .Values.data.replicaCount) 0) -}}
+{{- if or .Values.data.autoscaling.enabled (gt (include "elasticsearch.data.replicaCount" . | int) 0) -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -219,7 +249,7 @@ Returns true if at least one data-only node replica has been configured.
 Returns true if at least one ingest-only node replica has been configured.
 */}}
 {{- define "elasticsearch.ingest.enabled" -}}
-{{- if and .Values.ingest.enabled (or .Values.ingest.autoscaling.enabled (gt (int .Values.ingest.replicaCount) 0)) -}}
+{{- if and .Values.ingest.enabled (or .Values.ingest.autoscaling.enabled (gt (include "elasticsearch.ingest.replicaCount" . | int) 0)) -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
@@ -228,7 +258,7 @@ Returns true if at least one ingest-only node replica has been configured.
 Returns true if only one master node replica has been configured to assume all the roles
 */}}
 {{- define "elasticsearch.singleNode.enabled" -}}
-{{- if and (eq (int .Values.master.replicaCount) 1) (not (or .Values.master.masterOnly .Values.master.autoscaling.enabled (include "elasticsearch.data.enabled" .) (include "elasticsearch.coordinating.enabled" .) (include "elasticsearch.ingest.enabled" .))) -}}
+{{- if and (eq (include "elasticsearch.master.replicaCount" . | int) 1) (not (or .Values.master.masterOnly .Values.master.autoscaling.enabled (include "elasticsearch.data.enabled" .) (include "elasticsearch.coordinating.enabled" .) (include "elasticsearch.ingest.enabled" .))) -}}
     {{- true -}}
 {{- end -}}
 {{- end -}}
